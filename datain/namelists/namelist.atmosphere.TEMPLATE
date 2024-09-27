@@ -42,10 +42,11 @@
 /
 &restart
     config_do_restart = false
+    config_do_DAcycling = true
 /
 &printout
     config_print_global_minmax_vel = true
-    config_print_detailed_minmax_vel = false
+    config_print_detailed_minmax_vel = true
 /
 &IAU
     config_IAU_option = 'off'
@@ -55,13 +56,18 @@
     config_sst_update = false
     config_sstdiurn_update = false
     config_deepsoiltemp_update = false
-    config_radtlw_interval = '00:30:00'
-    config_radtsw_interval = '00:30:00'
-    config_conv_interval = '#CONFIG_CONV_INTERVAL#'
-    config_bucket_update = '15_00:00:00'
-    config_physics_suite = 'mesoscale_reference_monan'
-    config_convection_scheme = 'cu_gf_monan'
+    config_radtlw_interval = '01:00:00'
+    config_radtsw_interval = '01:00:00'
+    config_o3climatology = true
+    config_bucket_update = 'none'
+    config_physics_suite = 'mesoscale_reference'
+!    config_gwdo_scheme = 'off'
+    config_microp_re = true
 /
 &soundings
     config_sounding_interval = 'none'
 /
+&assimilation
+    config_jedi_da = true
+/
+

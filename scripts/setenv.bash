@@ -2,25 +2,10 @@
 
 # Load modules:
 
-module purge
-module load ohpc
-module unload openmpi4
-module load phdf5
-module load netcdf 
-module load netcdf-fortran 
-module load mpich-4.0.2-gcc-9.4.0-gpof2pv
-module load hwloc
-module load phdf5
-module load cdo-2.0.4-gcc-9.4.0-bjulvnd
-module load opengrads/2.2.1
-module load nco-5.0.1-gcc-11.2.0-u37c3hb
-module load metis
+export JEDI_ROOT=/mnt/beegfs/${USER}/jedi
+source ${JEDI_ROOT}/intel_env_mpas_v8.2    # for Intel jedi-spack libraries
+
 module list
-
-
-
-
-
 
 
 # Set environment variables and importants directories-------------------------------------------------- 
@@ -28,14 +13,15 @@ module list
 
 # MONAN-suite install root directories:
 # Put your directories:
-export DIR_SCRIPTS=$(dirname $(dirname $(pwd)))
-export DIR_DADOS=$(dirname $(dirname $(pwd)))
+#                   Get the path 2 levels up from the calling script
+#  here is in /mnt/beegfs/jose.aravequia/jedi/mpas_drive/scripts,  so DIR_SCRIPTS will be = /mnt/beegfs/jose.aravequia/jedi
+export DIR_SCRIPTS=/mnt/beegfs/$USER/JEDI/run # $(dirname $(dirname $(pwd)))
 export MONANDIR=$MONANDIR
 
 # Submiting variables:
 
 # PRE-Static phase:
-export STATIC_QUEUE="batch"
+export STATIC_QUEUE="PESQ1"
 export STATIC_ncores=32
 export STATIC_nnodes=1
 export STATIC_ncpn=32
@@ -43,7 +29,7 @@ export STATIC_jobname="Pre.static"
 export STATIC_walltime="02:00:00"
 
 # PRE-Degrib phase:
-export DEGRIB_QUEUE="batch"
+export DEGRIB_QUEUE="PESQ1"
 export DEGRIB_ncores=1
 export DEGRIB_nnodes=1
 export DEGRIB_ncpn=1
@@ -51,7 +37,7 @@ export DEGRIB_jobname="Pre.degrib"
 ### export DEGRIB_walltime="00:30:00" not used yet - using STATIC_walltime
 
 # PRE-Init Atmosphere phase:
-export INITATMOS_QUEUE="batch"
+export INITATMOS_QUEUE="PESQ1"
 export INITATMOS_ncores=64
 export INITATMOS_nnodes=1
 ### export INITATMOS_ncpn=1 not used yet  - using INITATMOS_ncores 
@@ -60,16 +46,16 @@ export INITATMOS_jobname="Pre.InitAtmos"
 
 
 # Model phase:
-export MODEL_QUEUE="batch"
-export MODEL_ncores=1024
-export MODEL_nnodes=16
-export MODEL_ncpn=64
+export MODEL_QUEUE="PESQ1"
+export MODEL_ncores=128
+export MODEL_nnodes=1
+export MODEL_ncpn=128
 export MODEL_jobname="Model.MONAN"
 export MODEL_walltime="8:00:00"
 
 
 # Post phase:
-export POST_QUEUE="batch"
+export POST_QUEUE="PESQ1"
 ### export POST_ncores=1 not used yet
 export POST_nnodes=1
 export POST_ncpn=32
@@ -78,7 +64,7 @@ export POST_walltime="8:00:00"
 
 
 # Products phase:
-export PRODS_QUEUE="batch"
+export PRODS_QUEUE="PESQ1"
 export PRODS_ncores=1
 export PRODS_nnodes=1
 export PRODS_ncpn=1
@@ -90,19 +76,20 @@ export PRODS_walltime="8:00:00"
 # We discourage changing the variables below:
 
 # Others variables:
-export OMP_NUM_THREADS=1
-export OMPI_MCA_btl_openib_allow_ib=1
-export OMPI_MCA_btl_openib_if_include="mlx5_0:1"
-export PMIX_MCA_gds=hash
-export MPI_PARAMS="-iface ib0 -bind-to core -map-by core"
+# export OMP_NUM_THREADS=1
+# export OMPI_MCA_btl_openib_allow_ib=1
+# export OMPI_MCA_btl_openib_if_include="mlx5_0:1"
+# export PMIX_MCA_gds=hash
+# export MPI_PARAMS="-iface ib0 -bind-to core -map-by core"
 
 # Libraries paths:
-export NETCDF=/mnt/beegfs/monan/libs/netcdf
-export PNETCDF=/mnt/beegfs/monan/libs/PnetCDF
-export NETCDFDIR=${NETCDF}
-export PNETCDFDIR=${PNETCDF}
-export DIRDADOS=/mnt/beegfs/monan/dados/MONAN_v0.5.0
+# export NETCDF=/mnt/beegfs/monan/libs/netcdf
+# export PNETCDF=/mnt/beegfs/monan/libs/PnetCDF
+# export NETCDFDIR=${NETCDF}
+# export PNETCDFDIR=${PNETCDF}
+export DIR_DADOS=/mnt/beegfs/$USER/JEDI/mpas8.2
 export OPERDIR=/oper/dados/ioper/tempo
+export GFSDATA=/mnt/beegfs/$USER/JEDI/GFS-CI
 
 # Colors:
 export GREEN='\033[1;32m'  # Green
@@ -135,20 +122,20 @@ clean_model_tmp_files () {
 
    echo "Removing all temporary files from last MODEL run trash."
 
-   rm -f ${DIR_SCRIPTS}/scripts_CD-CT/scripts/atmosphere_model
-   rm -f ${DIR_SCRIPTS}/scripts_CD-CT/scripts/*TBL
-   rm -f ${DIR_SCRIPTS}/scripts_CD-CT/scripts/*DBL
-   rm -f ${DIR_SCRIPTS}/scripts_CD-CT/scripts/*DATA
-   rm -f ${DIR_SCRIPTS}/scripts_CD-CT/scripts/x1.*.nc
-   rm -f ${DIR_SCRIPTS}/scripts_CD-CT/scripts/x1.*.graph.info.part.*
-   rm -f ${DIR_SCRIPTS}/scripts_CD-CT/scripts/Vtable.GFS
-   rm -f ${DIR_SCRIPTS}/scripts_CD-CT/scripts/streams.atmosphere
-   rm -f ${DIR_SCRIPTS}/scripts_CD-CT/scripts/stream_list.atmosphere.surface
-   rm -f ${DIR_SCRIPTS}/scripts_CD-CT/scripts/stream_list.atmosphere.output
-   rm -f ${DIR_SCRIPTS}/scripts_CD-CT/scripts/stream_list.atmosphere.diagnostics
-   rm -f ${DIR_SCRIPTS}/scripts_CD-CT/scripts/namelist.atmosphere
-   rm -f ${DIR_SCRIPTS}/scripts_CD-CT/scripts/MONAN_DIAG_*
-   rm -f ${DIR_SCRIPTS}/scripts_CD-CT/scripts/log.atmosphere.*
+   rm -f ${DIR_SCRIPTS}/run_dir/scripts/atmosphere_model
+   rm -f ${DIR_SCRIPTS}/run_dir/scripts/*TBL
+   rm -f ${DIR_SCRIPTS}/run_dir/scripts/*DBL
+   rm -f ${DIR_SCRIPTS}/run_dir/scripts/*DATA
+   rm -f ${DIR_SCRIPTS}/run_dir/scripts/x1.*.nc
+   rm -f ${DIR_SCRIPTS}/run_dir/scripts/x1.*.graph.info.part.*
+   rm -f ${DIR_SCRIPTS}/run_dir/scripts/Vtable.GFS
+   rm -f ${DIR_SCRIPTS}/run_dir/scripts/streams.atmosphere
+   rm -f ${DIR_SCRIPTS}/run_dir/scripts/stream_list.atmosphere.surface
+   rm -f ${DIR_SCRIPTS}/run_dir/scripts/stream_list.atmosphere.output
+   rm -f ${DIR_SCRIPTS}/run_dir/scripts/stream_list.atmosphere.diagnostics
+   rm -f ${DIR_SCRIPTS}/run_dir/scripts/namelist.atmosphere
+   rm -f ${DIR_SCRIPTS}/run_dir/scripts/MONAN_DIAG_*
+   rm -f ${DIR_SCRIPTS}/run_dir/scripts/log.atmosphere.*
    echo ""
    
 }
