@@ -27,28 +27,35 @@ then
    echo "EXP_NAME    :: Forcing: GFS"
    echo "            :: Others options to be added later..."
    echo "RESOLUTION  :: number of points in resolution model grid, e.g: 1024002  (24 km)"
+   echo "                                                                256002  (48 km)"
    echo "                                                                 40962  (120 km)"
    echo "LABELI      :: Initial date YYYYMMDDHH, e.g.: 2024010100"
-   echo "FCST        :: Forecast hours, e.g.: 24 or 36, etc."
+   echo "FCST        :: Forecast hours, e.g.: 24, 36, 48,  etc."
    echo ""
    echo "24 hour forecast example for 24km:"
    echo "${0} GFS 1024002 2024010100 24"
-   echo "48 hour forecast example for 120km:"
-   echo "${0} GFS   40962 2024010100 48"
+   echo "72 hour forecast example for 48 km:"
+   echo "${0} GFS  256002 2024090100 72"
    echo ""
 
    exit
 fi
-
+# Input variables:--------------------------------------
+EXP=$1         #EXP=GFS
+RES=$2        # RES=1024002 RES=256002
+YYYYMMDDHHi=$3 #YYYYMMDDHHi=2024012000
+FCST=$4        #FCST=24
+#-------------------------------------------------------
 # Set environment variables exports:
 echo ""
 echo -e "\033[1;32m==>\033[0m Moduling environment for MONAN model...\n"
 . setenv.bash
 
-
+echo " DIR_SCRIPTS = "${DIR_SCRIPTS}
+echo " DIR_DADOS = "${DIR_DADOS}
 # Standart directories variables:---------------------------------------
-DIRHOMES=${DIR_SCRIPTS}/scripts_CD-CT; mkdir -p ${DIRHOMES}  
-DIRHOMED=${DIR_DADOS}/scripts_CD-CT;   mkdir -p ${DIRHOMED}  
+DIRHOMES=${DIR_SCRIPTS}; mkdir -p ${DIRHOMES}  
+DIRHOMED=${DIR_DADOS};   mkdir -p ${DIRHOMED}  
 SCRIPTS=${DIRHOMES}/scripts;           mkdir -p ${SCRIPTS}
 DATAIN=${DIRHOMED}/datain;             mkdir -p ${DATAIN}
 DATAOUT=${DIRHOMED}/dataout;           mkdir -p ${DATAOUT}
@@ -57,28 +64,17 @@ EXECS=${DIRHOMED}/execs;               mkdir -p ${EXECS}
 #----------------------------------------------------------------------
 
 
-# Input variables:--------------------------------------
-EXP=${1};         #EXP=GFS
-RES=${2};         #RES=1024002
-YYYYMMDDHHi=${3}; #YYYYMMDDHHi=2024012000
-FCST=${4};        #FCST=24
-#-------------------------------------------------------
-
 
 # Local variables--------------------------------------
 # Calculating CIs and final forecast dates in model namelist format:
-yyyymmddi=${YYYYMMDDHHi:0:8}
-hhi=${YYYYMMDDHHi:8:2}
+export yyyymmddi=${YYYYMMDDHHi:0:8}
+export hhi=${YYYYMMDDHHi:8:2}
+echo "data: "$YYYYMMDDHHi 
+echo "Limite da Previsão "$FCST
+echo "Data e hora " $yyyymmddi $hhi
 yyyymmddhhf=$(date +"%Y%m%d%H" -d "${yyyymmddi} ${hhi}:00 ${FCST} hours" )
 final_date=${yyyymmddhhf:0:4}-${yyyymmddhhf:4:2}-${yyyymmddhhf:6:2}_${yyyymmddhhf:8:2}.00.00
 #-------------------------------------------------------
-
-
-echo -e  "${GREEN}==>${NC} Scripts_CD-CT last commit: \n"
-git log -1 --name-only
-git branch | head -1
-
-
 # Untar the fixed files:
 # x1.${RES}.graph.info.part.<Ncores> files can be found in datain/fixed
 # *.TBL files also can be found in datain/fixed

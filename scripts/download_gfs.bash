@@ -63,12 +63,11 @@ cd ${tmpdir}
 
 fctint=3
 FCI=0
-FCE=3   # Just needed to run ungrib.exe without error
+FCE=0   # Adjust FCE to the lenght (in hours) of your REGIONAL experiment
+        # to produce lateral boundary condition 
 
-
-echo "ANO : " ${YY}
-
-sizeok=400000000
+sizeok=500000000   ## Minimum size for GFS forecast 000 hours file.
+                   ## download it if local file smaller than this.
 
 ### Get Forecasts ----------------
 
@@ -87,21 +86,39 @@ while (($FCI<=$FCE)) ; do
   fname_oper='gfs.t'${HH}z.pgrb2.0p25.f${fchh}'.'${DYMD}${HH}'.grib2'
 
   PATHFILE=${pathdate}'/'${fname}
+  ## possible file already available in operation area
   file_oper=${operdir_out}'/'${fname_oper}
-  if [ -f "$file_oper" ]; then
+  if [ -f "$file_oper" ]; then  # 
+       # Get file size
+     FSIZE_OPER=$(stat -c%s "$file_oper")
+  fi
+  ## possible already downloaded file
+  file_already=${dirout}/${fname}
+  if [ -f "$file_already" ]; then  # 
+       # Get file size
+     FSIZE_already=$(stat -c%s "$file_already")
+  fi
+  if ([ -f "$file_already" ] && [ "$FSIZE_already" -ge "$sizeok" ]) ; then
      # Get file size
+        
+     ## if (( FSIZE_already > sizeok )) ; then
+        echo "File  $file_already already there, so not downloading it ..."
+        echo "If $file_already is not ok, remove it, then try this script again." 
+     ## fi
+  elif ([ -f "$file_oper" ] && [ "$FSIZE_OPER" -ge "$sizeok"]); then  # 
+       # Get file size
      FILESIZE=$(stat -c%s "$file_oper")     
-     if (( FILESIZE > sizeok )) ; then
+     # if (( FILESIZE > sizeok )) ; then
         echo "Copying $file_oper ..."
-        cp $file_oper $fname
-     fi
-  else   # 
+        cp $file_oper ${dirout}/$fname
+     # fi
+  else 
       ### Make it as a function
       echo "$fname not on OPER disk. Downloading it from RDA/UCAR ..."
       get_gfs_rda $site $PATHFILE 
+      mv ${fname} ${dirout}/.
   fi
-  mv ${fname} ${dirout}/.
-
+  
   if(($FCI<120)) ; then
     let FCI=$FCI+$fctint
   elif(($FCI<240)) ; then

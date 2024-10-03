@@ -3,9 +3,11 @@
 # Load modules:
 
 export JEDI_ROOT=/mnt/beegfs/${USER}/jedi
-source ${JEDI_ROOT}/intel_env_mpas_v8.2    # for Intel jedi-spack libraries
 
-module list
+## NOTE : Each executing job has to load the modules environment . 
+#  Not needed to load here
+#  For ungrib.exe job : 
+#  source ${JEDI_ROOT}/intel_env_mpas_v8.2    # for Intel jedi-spack libraries
 
 
 # Set environment variables and importants directories-------------------------------------------------- 
@@ -90,6 +92,7 @@ export PRODS_walltime="8:00:00"
 export DIR_DADOS=/mnt/beegfs/$USER/JEDI/mpas8.2
 export OPERDIR=/oper/dados/ioper/tempo
 export GFSDATA=/mnt/beegfs/$USER/JEDI/GFS-CI
+export WPS_EXEC=/mnt/beegfs/$USER/jedi/WPS-4.3.1
 
 # Colors:
 export GREEN='\033[1;32m'  # Green

@@ -16,10 +16,27 @@ then
    echo ""
    echo "24 hour forcast example:"
    echo "${0} GFS 1024002 2024010100 24"
+   echo "48 hour forecast example for 48 km grid cell:"
+   echo "${0} GFS  256002 2024090100 48"
    echo ""
 
    exit
 fi
+
+# Input variables:--------------------------------------
+EXP=${1};         #EXP=GFS
+RES=${2};         #RES=1024002
+YYYYMMDDHHi=${3}; #YYYYMMDDHHi=2024012000
+FCST=${4};        #FCST=24
+#-------------------------------------------------------
+# Parameter for DA
+len=3
+#-------------------------------------------------------
+DYMD=${YYYYMMDDHHi:0:8}  # YYYYMMDD
+YY=${YYYYMMDDHHi:0:4}
+MM=${YYYYMMDDHHi:4:2}
+DD=${YYYYMMDDHHi:6:2}
+HH=${YYYYMMDDHHi:8:2}
 
 # Set environment variables exports:
 echo ""
@@ -28,28 +45,26 @@ echo -e "\033[1;32m==>\033[0m Moduling environment for MONAN model...\n"
 
 
 # Standart directories variables:---------------------------------------
-DIRHOMES=${DIR_SCRIPTS}/scripts_CD-CT; mkdir -p ${DIRHOMES}  
-DIRHOMED=${DIR_DADOS}/scripts_CD-CT;   mkdir -p ${DIRHOMED}  
-SCRIPTS=${DIRHOMES}/scripts;           mkdir -p ${SCRIPTS}
-DATAIN=${DIRHOMED}/datain;             mkdir -p ${DATAIN}
-DATAOUT=${DIRHOMED}/dataout;           mkdir -p ${DATAOUT}
-SOURCES=${DIRHOMES}/sources;           mkdir -p ${SOURCES}
-EXECS=${DIRHOMED}/execs;               mkdir -p ${EXECS}
+DIRHOMES=${DIR_SCRIPTS};                mkdir -p ${DIRHOMES}  
+DIRHOMED=${DIR_DADOS};                  mkdir -p ${DIRHOMED}  
+SCRIPTS=${DIRHOMES}/scripts/${DYMD}${HH};            mkdir -p ${SCRIPTS}
+DATAIN=${DIRHOMED}/datain;              mkdir -p ${DATAIN}
+DATAOUT=${DIRHOMED}/dataout;            mkdir -p ${DATAOUT}
+SOURCES=${DIRHOMES}/sources;            mkdir -p ${SOURCES}
+EXECS=${JEDI_ROOT}/MPAS-Model;                mkdir -p ${EXECS}
 #----------------------------------------------------------------------
 
-
-# Input variables:--------------------------------------
-EXP=${1};         #EXP=GFS
-RES=${2};         #RES=1024002
-YYYYMMDDHHi=${3}; #YYYYMMDDHHi=2024012000
-FCST=${4};        #FCST=24
-#-------------------------------------------------------
-
+echo "DATAOUT  : "${DATAOUT}
+echo "EXECS   : "${EXECS}
 
 # Local variables--------------------------------------
 start_date=${YYYYMMDDHHi:0:4}-${YYYYMMDDHHi:4:2}-${YYYYMMDDHHi:6:2}_${YYYYMMDDHHi:8:2}:00:00
 GEODATA=${DATAIN}/WPS_GEOG
 cores=${INITATMOS_ncores}
+
+DATEF=`date -u +%Y%m%d%H -d "${DYMD} ${HH} +${len} hours"`
+OPERDIREXP=${GFSDATA}
+BNDDIR=${OPERDIREXP}/${YYYYMMDDHHi:0:4}/${YYYYMMDDHHi:4:2}/${YYYYMMDDHHi:6:2}/${YYYYMMDDHHi:8:2}
 #-------------------------------------------------------
 mkdir -p ${DATAOUT}/${YYYYMMDDHHi}/Pre/logs
 
@@ -117,15 +132,18 @@ ulimit -c unlimited
 ulimit -v unlimited
 ulimit -s unlimited
 
-
-. $(pwd)/setenv.bash
+source $(pwd)/setenv.bash
+echo $JEDI_ROOT
+module list
+source ${JEDI_ROOT}/intel_env_mpas_v8.2 
 
 cd ${SCRIPTS}
-
-
+pwd
 
 date
-time mpirun -np \${SLURM_NTASKS} -env UCX_NET_DEVICES=mlx5_0:1 -genvall ./\${executable}
+# time mpirun -np \${SLURM_NTASKS} -env UCX_NET_DEVICES=mlx5_0:1 -genvall ./\${executable}
+time mpirun -np \${SLURM_NTASKS} ./\${executable}
+
 date
 
 
@@ -134,7 +152,7 @@ mv namelist.init_atmosphere ${DATAOUT}/${YYYYMMDDHHi}/Pre/logs
 mv streams.init_atmosphere ${DATAOUT}/${YYYYMMDDHHi}/Pre/logs
 mv ${SCRIPTS}/x1.${RES}.init.nc ${DATAOUT}/${YYYYMMDDHHi}/Pre
 
-chmod a+x ${DATAIN}/fixed//x1.${RES}.init.nc 
+chmod a+x ${DATAOUT}/${YYYYMMDDHHi}/Pre/x1.${RES}.init.nc 
 rm -f ${SCRIPTS}/${EXP}\:${start_date:0:13}
 rm -f ${SCRIPTS}/init_atmosphere_model
 rm -f ${SCRIPTS}/x1.${RES}.graph.info.part.${cores}

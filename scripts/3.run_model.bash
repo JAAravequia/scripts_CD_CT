@@ -30,14 +30,38 @@ then
    echo ""
    echo "24 hour forecast example for 24km:"
    echo "${0} GFS 1024002 2024010100 24"
-   echo "48 hour forecast example for 120km:"
-   echo "${0} GFS   40962 2024010100 48"
+   echo "72 hour forecast example for 120km:"
+   echo "${0} GFS   40962 2024010100 72"
+   echo "48 hour forecast example for 48 km:"
+   echo "${0} GFS  256002 2024090100 48"
    echo "Cleannig temp files example:"
    echo "${0} clean"
    echo ""
 
    exit
 fi
+
+# Input variables:--------------------------------------
+EXP=${1};         #EXP=GFS
+RES=${2};         #RES=1024002
+YYYYMMDDHHi=${3}; #YYYYMMDDHHi=2024012000
+FCST=${4};        #FCST=24
+#-------------------------------------------------------
+# Parameter for DA
+len=3
+export fgfreq=24 ## Output each 24 hours for building B Matrix
+bgts=$(($fgfreq*3600))
+# OutInterval=`date -d "@$bgts" -u "+%-H:%M:%S"`
+OutInterval='24:00:00'  ## interval to output first guess / forecasts
+echo "I/O interval : "${OutInterval}
+
+## exit ## debug
+#-------------------------------------------------------
+DYMD=${YYYYMMDDHHi:0:8}  # YYYYMMDD
+YY=${YYYYMMDDHHi:0:4}
+MM=${YYYYMMDDHHi:4:2}
+DD=${YYYYMMDDHHi:6:2}
+HH=${YYYYMMDDHHi:8:2}
 
 # Set environment variables exports:
 echo ""
@@ -61,21 +85,19 @@ fi
 
 
 # Standart directories variables:---------------------------------------
-DIRHOMES=${DIR_SCRIPTS}/scripts_CD-CT; mkdir -p ${DIRHOMES}  
-DIRHOMED=${DIR_DADOS}/scripts_CD-CT;   mkdir -p ${DIRHOMED}  
-SCRIPTS=${DIRHOMES}/scripts;           mkdir -p ${SCRIPTS}
-DATAIN=${DIRHOMED}/datain;             mkdir -p ${DATAIN}
-DATAOUT=${DIRHOMED}/dataout;           mkdir -p ${DATAOUT}
-SOURCES=${DIRHOMES}/sources;           mkdir -p ${SOURCES}
-EXECS=${DIRHOMED}/execs;               mkdir -p ${EXECS}
+DIRHOMES=${DIR_SCRIPTS};                mkdir -p ${DIRHOMES}  
+DIRHOMED=${DIR_DADOS};                  mkdir -p ${DIRHOMED}  
+SCRIPTS=${DIRHOMES}/scripts/${DYMD}${HH};            mkdir -p ${SCRIPTS}
+DATAIN=${DIRHOMED}/datain;              mkdir -p ${DATAIN}
+DATAOUT=${DIRHOMED}/dataout;            mkdir -p ${DATAOUT}
+SOURCES=${DIRHOMES}/sources;            mkdir -p ${SOURCES}
+EXECS=${JEDI_ROOT}/MPAS-Model;                mkdir -p ${EXECS}
 #----------------------------------------------------------------------
+MODEL_TBLs=${EXECS}/src/core_atmosphere/physics
+#----------------------------------------------------------------------
+  echo "DATAOUT  : "${DATAOUT}
+  echo "EXECS   : "${EXECS}
 
-
-# Input variables:--------------------------------------
-EXP=${1};         #EXP=GFS
-RES=${2};         #RES=1024002
-YYYYMMDDHHi=${3}; #YYYYMMDDHHi=2024012000
-FCST=${4};        #FCST=6
 #-------------------------------------------------------
 mkdir -p ${DATAOUT}/${YYYYMMDDHHi}/Model/logs
 
@@ -91,6 +113,10 @@ if [ $RES -eq 1024002 ]; then  #24Km
    CONFIG_DT=180.0
    CONFIG_LEN_DISP=24000.0
    CONFIG_CONV_INTERVAL="00:15:00"
+elif [ $RES -eq 256002 ]; then  #48Km
+   CONFIG_DT=240.0
+   CONFIG_LEN_DISP=48000.0
+   CONFIG_CONV_INTERVAL="00:10:00"
 elif [ $RES -eq 40962 ]; then  #120Km
    CONFIG_DT=600.0
    CONFIG_LEN_DISP=120000.0
@@ -151,13 +177,20 @@ then
    sed -e "s,#LABELI#,${start_date},g;s,#FCSTS#,${DD_HHMMSS_forecast},g;s,#RES#,${RES},g;
 s,#CONFIG_DT#,${CONFIG_DT},g;s,#CONFIG_LEN_DISP#,${CONFIG_LEN_DISP},g;s,#CONFIG_CONV_INTERVAL#,${CONFIG_CONV_INTERVAL},g" \
    ${DATAIN}/namelists/namelist.atmosphere.TEMPLATE > ${SCRIPTS}/namelist.atmosphere
-   
-   sed -e "s,#RES#,${RES},g;s,#CIORIG#,${EXP},g;s,#LABELI#,${YYYYMMDDHHi},g;s,#NLEV#,${NLEV},g" \
+
+echo sed -e "s,#RES#,${RES},g;s,#CIORIG#,${EXP},g;s,#LABELI#,${YYYYMMDDHHi},g;s,#NLEV#,${NLEV},g;s,#FGFREQ#,${OutInterval},g" \
+   ${DATAIN}/namelists/streams.atmosphere.TEMPLATE > ${SCRIPTS}/streams.atmosphere
+
+   sed -e "s,#RES#,${RES},g;s,#CIORIG#,${EXP},g;s,#LABELI#,${YYYYMMDDHHi},g;s,#NLEV#,${NLEV},g;s,#FGFREQ#,${OutInterval},g" \
    ${DATAIN}/namelists/streams.atmosphere.TEMPLATE > ${SCRIPTS}/streams.atmosphere
 fi
 cp -f ${DATAIN}/namelists/stream_list.atmosphere.output ${SCRIPTS}
 cp -f ${DATAIN}/namelists/stream_list.atmosphere.diagnostics ${SCRIPTS}
 cp -f ${DATAIN}/namelists/stream_list.atmosphere.surface ${SCRIPTS}
+cp -f ${DATAIN}/namelists/stream_list.atmosphere.analysis ${SCRIPTS}
+cp -f ${DATAIN}/namelists/stream_list.atmosphere.background ${SCRIPTS}
+cp -f ${DATAIN}/namelists/stream_list.atmosphere.control ${SCRIPTS}
+cp -f ${DATAIN}/namelists/stream_list.atmosphere.ensemble ${SCRIPTS}
 
 
 
@@ -183,35 +216,37 @@ ulimit -v unlimited
 ulimit -s unlimited
 
 . $(pwd)/setenv.bash
+source ${JEDI_ROOT}/intel_env_mpas_v8.2 
 
 cd ${SCRIPTS}
 
 
 date
-time mpirun -np \${SLURM_NTASKS} -env UCX_NET_DEVICES=mlx5_0:1 -genvall ./\${executable}
+# time mpirun -np \${SLURM_NTASKS} -env UCX_NET_DEVICES=mlx5_0:1 -genvall ./\${executable}
+time mpirun -np \${SLURM_NTASKS}  ./\${executable}
 date
 
 #
 # move dataout, clean up and remove files/links
 #
 
-mv MONAN_DIAG_* ${DATAOUT}/${YYYYMMDDHHi}/Model
-mv MONAN_HIST_* ${DATAOUT}/${YYYYMMDDHHi}/Model
-cp ${EXECS}/VERSION.txt ${DATAOUT}/${YYYYMMDDHHi}/Model
+mv bg.* ${DATAOUT}/${YYYYMMDDHHi}/Model
+# mv MONAN_HIST_* ${DATAOUT}/${YYYYMMDDHHi}/Model
+# cp ${EXECS}/VERSION.txt ${DATAOUT}/${YYYYMMDDHHi}/Model
 
 mv log.atmosphere.*.out ${DATAOUT}/${YYYYMMDDHHi}/Model/logs
 mv log.atmosphere.*.err ${DATAOUT}/${YYYYMMDDHHi}/Model/logs
 mv namelist.atmosphere ${DATAOUT}/${YYYYMMDDHHi}/Model/logs
 mv stream* ${DATAOUT}/${YYYYMMDDHHi}/Model/logs
 
-rm -f ${SCRIPTS}/atmosphere_model
-rm -f ${SCRIPTS}/*TBL 
-rm -f ${SCRIPTS}/*.DBL
-rm -f ${SCRIPTS}/*DATA
-rm -f ${SCRIPTS}/x1.${RES}.static.nc
-rm -f ${SCRIPTS}/x1.${RES}.graph.info.part.${cores}
-rm -f ${SCRIPTS}/Vtable.GFS
-rm -f ${SCRIPTS}/x1.${RES}.init.nc
+# rm -f ${SCRIPTS}/atmosphere_model
+# rm -f ${SCRIPTS}/*TBL 
+# rm -f ${SCRIPTS}/*.DBL
+# rm -f ${SCRIPTS}/*DATA
+# rm -f ${SCRIPTS}/x1.${RES}.static.nc
+# rm -f ${SCRIPTS}/x1.${RES}.graph.info.part.${cores}
+# rm -f ${SCRIPTS}/Vtable.GFS
+# rm -f ${SCRIPTS}/x1.${RES}.init.nc
 
 
 
@@ -223,15 +258,16 @@ echo -e  "${GREEN}==>${NC} Submitting MONAN atmosphere model and waiting for fin
 echo -e  "${GREEN}==>${NC} Logs being generated at ${DATAOUT}/logs... \n"
 echo -e  "sbatch ${SCRIPTS}/model.bash"
 sbatch --wait ${SCRIPTS}/model.bash
-mv ${SCRIPTS}/model.bash ${DATAOUT}/${YYYYMMDDHHi}/Model/logs
+# mv ${SCRIPTS}/model.bash ${DATAOUT}/${YYYYMMDDHHi}/Model/logs
 
 
-output_interval=3
+output_interval=${fgfreq}
 for i in $(seq 0 ${output_interval} ${FCST})
 do
    hh=${YYYYMMDDHHi:8:2}
-   currentdate=$(date -u +"%Y%m%d%H" -d "${YYYYMMDDHHi:0:8} ${hh}:00 ${i} hours")
-   file=MONAN_DIAG_G_MOD_GFS_${YYYYMMDDHHi}_${currentdate}.00.00.x${RES}L55.nc
+   currentdate=$(date -u +"%Y-%m-%d_%H" -d "${YYYYMMDDHHi:0:8} ${hh}:00 ${i} hours")
+   ## file=MONAN_DIAG_G_MOD_GFS_${YYYYMMDDHHi}_${currentdate}.00.00.x${RES}L55.nc
+   file=bg.${currentdate}.00.00.nc    # bg.2024-09-03_00.00.00.nc
    
    if [ ! -s ${DATAOUT}/${YYYYMMDDHHi}/Model/${file} ]
    then
