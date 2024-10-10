@@ -1,6 +1,5 @@
 #!/bin/bash 
 
-echo "Numero de argumentos: "$#
 if [ $# -ne 4 ]
 then
    echo ""
@@ -22,6 +21,10 @@ then
 
    exit
 fi
+# ---------------------------------------------------------------------------
+#  Open read and listing permition for other 
+umask 0022    #  drwxr-xr-x  for new directories ;  -rw-r--r--  for new files
+#----------------------------------------------------------------------------
 
 # Input variables:--------------------------------------
 EXP=${1};         #EXP=GFS
@@ -112,10 +115,15 @@ cat << EOF0 > ${SCRIPTS}/degrib.bash
 #SBATCH --output=${DATAOUT}/${YYYYMMDDHHi}/Pre/logs/debrib.o%j    # File name for standard output
 #SBATCH --error=${DATAOUT}/${YYYYMMDDHHi}/Pre/logs/debrib.e%j     # File name for standard error output
 #
-
+# ---------------------------------------------------------------------------
+#  Open read and listing permition for other 
+umask 0022    #  drwxr-xr-x  for new directories ;  -rw-r--r--  for new files
+#----------------------------------------------------------------------------
 ulimit -s unlimited
 ulimit -c unlimited
 ulimit -v unlimited
+
+NTasks="\${SLURM_NTASKS:-1}"
 
 export PMIX_MCA_gds=hash
 
@@ -137,7 +145,7 @@ echo ./link_grib.csh ${GFSDATA}/${YY}/${MM}/${DD}/${HH}/gfs.0p25.${DYMD}${HH}.f*
 ./link_grib.csh ${GFSDATA}/${YY}/${MM}/${DD}/${HH}/gfs.0p25.${DYMD}${HH}.f*.grib2 
 
 date
-time mpirun -np 1 ./ungrib.exe
+time mpirun -np \${NTasks} ./ungrib.exe
 date
 
 

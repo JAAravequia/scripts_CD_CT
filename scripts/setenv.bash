@@ -92,6 +92,7 @@ export PRODS_walltime="8:00:00"
 export DIR_DADOS=/mnt/beegfs/$USER/JEDI/mpas8.2
 export OPERDIR=/oper/dados/ioper/tempo
 export GFSDATA=/mnt/beegfs/$USER/JEDI/GFS-CI
+export GEFSDATA=/mnt/beegfs/$USER/JEDI/GEFS-CI
 export WPS_EXEC=/mnt/beegfs/$USER/jedi/WPS-4.3.1
 
 # Colors:

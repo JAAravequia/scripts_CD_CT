@@ -127,28 +127,33 @@ echo -e "\033[34;1m > Data Inicial        : \033[m \033[31;1m${LABELI}\033[m"
 echo -e "\033[34;1m > Data Final          : \033[m \033[31;1m${LABELF}\033[m"
 echo -e "\033[34;1m > Tempo de Previsao   : \033[m \033[31;1m${modelFCT}\033[m"
 
-
+. setenv.bash
+sizeok=6300000    ## typical size of dataout/yyyymmddhh directory is 6391784 Kb
 
 while [ ${LABELI} -le ${LABELF} ]; do
+   dirout=${DIR_DADOS}/dataout/${LABELI}
+   mkdir -p $dirout                       # next verification needs it to be created   
+   size_dout=`\du -s $dirout | cut -f 1`
+   while [ "$size_dout" -lt "$sizeok" ]; do 
+      echo ""
+      echo -e "\033[34;1m >>> Submetendo o Sistema para o dia \033[31;1m${LABELI}\033[m \033[m"
+      echo ""
    
+      # find GFS initial condition in the system file or download it from RDA/UCAR
+      ./download_gfs.bash ${LABELI}
+   
+      # using WRF/WPS ungrib.exe app, degrig GFS Initial condition
+      ./make_degrib.bash ${exp} ${res} ${LABELI} ${modelFCT} 
+   
+      # convert Initial condition into the MPAS grid
+      ./make_initatmos.bash ${exp} ${res} ${LABELI} ${modelFCT}
+   
+      # run MPAS 
+      ./3.run_model.bash ${exp} ${res} ${LABELI} ${modelFCT}
+   
+      size_dout=`\du -s $dirout | cut -f 1`   # Get the size of output directory to verify it is runned OK
 
-   echo ""
-   echo -e "\033[34;1m >>> Submetendo o Sistema para o dia \033[31;1m${LABELI}\033[m \033[m"
-   echo ""
-
-   # find GFS initial condition in the system file or download it from RDA/UCAR
-   ./download_gfs.bash ${LABELI}
-
-   # using WRF/WPS ungrib.exe app, degrig GFS Initial condition
-   ./make_degrib.bash ${exp} ${res} ${LABELI} ${modelFCT} 
-
-   # convert Initial condition into the MPAS grid
-   ./make_initatmos.bash ${exp} ${res} ${LABELI} ${modelFCT}
-
-   # run MPAS 
-   ./3.run_model.bash ${exp} ${res} ${LABELI} ${modelFCT}
-
-
+   done 
    #    Going to the next analysis time
    LABELI=`date -u +%Y%m%d%H -d "${LABELI:0:8} ${LABELI:8:2} +6 hours" ` 
 

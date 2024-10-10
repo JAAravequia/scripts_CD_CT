@@ -22,7 +22,10 @@ then
 
    exit
 fi
-
+# ---------------------------------------------------------------------------
+#  Open read and listing permition for other 
+umask 0022    #  drwxr-xr-x  for new directories ;  -rw-r--r--  for new files
+#----------------------------------------------------------------------------
 # Input variables:--------------------------------------
 EXP=${1};         #EXP=GFS
 RES=${2};         #RES=1024002
@@ -127,10 +130,15 @@ cat << EOF0 > ${SCRIPTS}/initatmos.bash
 ##SBATCH --mem=500000
 
 export executable=init_atmosphere_model
-
+# ---------------------------------------------------------------------------
+#  Open read and listing permition for other 
+umask 0022    #  drwxr-xr-x  for new directories ;  -rw-r--r--  for new files
+#----------------------------------------------------------------------------
 ulimit -c unlimited
 ulimit -v unlimited
 ulimit -s unlimited
+
+NTasks="\${SLURM_NTASKS:-64}"
 
 source $(pwd)/setenv.bash
 echo $JEDI_ROOT
@@ -141,8 +149,8 @@ cd ${SCRIPTS}
 pwd
 
 date
-# time mpirun -np \${SLURM_NTASKS} -env UCX_NET_DEVICES=mlx5_0:1 -genvall ./\${executable}
-time mpirun -np \${SLURM_NTASKS} ./\${executable}
+# time mpirun -np \${NTasks} -env UCX_NET_DEVICES=mlx5_0:1 -genvall ./\${executable}
+time mpirun -np \${NTasks} ./\${executable}
 
 date
 

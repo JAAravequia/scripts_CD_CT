@@ -1,11 +1,11 @@
-#!/bin/bash
+#!/bin/bash -l
 #
 export LANG="en_GB.UTF-8"
 
 get_gfs_rda () {
   echo "Download from: $1 file: $2"
+  rm -f $2   ## remove old file (possible broken download)
   wget $1/$2
-
 }
 
 
@@ -16,6 +16,9 @@ get_gfs_rda () {
 #
 #
 site='https://data.rda.ucar.edu/d084001'
+
+#  Open read and listing permition for other 
+umask 0022    #  drwxr-xr-x  for new directories ;  -rw-r--r--  for new files
 
 # --------------------------------------
 #
@@ -88,6 +91,7 @@ while (($FCI<=$FCE)) ; do
   PATHFILE=${pathdate}'/'${fname}
   ## possible file already available in operation area
   file_oper=${operdir_out}'/'${fname_oper}
+  CI_OK=false
   if [ -f "$file_oper" ]; then  # 
        # Get file size
      FSIZE_OPER=$(stat -c%s "$file_oper")
@@ -97,6 +101,11 @@ while (($FCI<=$FCE)) ; do
   if [ -f "$file_already" ]; then  # 
        # Get file size
      FSIZE_already=$(stat -c%s "$file_already")
+     if [ "$FSIZE_already" -lt "$sizeok" ] ; then  ## possible broken download, then remove it
+        rm $file_already
+     else
+       CI_OK=true
+     fi
   fi
   if ([ -f "$file_already" ] && [ "$FSIZE_already" -ge "$sizeok" ]) ; then
      # Get file size
@@ -105,14 +114,15 @@ while (($FCI<=$FCE)) ; do
         echo "File  $file_already already there, so not downloading it ..."
         echo "If $file_already is not ok, remove it, then try this script again." 
      ## fi
-  elif ([ -f "$file_oper" ] && [ "$FSIZE_OPER" -ge "$sizeok"]); then  # 
+  elif ([ -f "$file_oper" ] && [ "$FSIZE_OPER" -ge "$sizeok" ] && [ "$CI_OK" = false ]); then  # 
        # Get file size
      FILESIZE=$(stat -c%s "$file_oper")     
      # if (( FILESIZE > sizeok )) ; then
         echo "Copying $file_oper ..."
         cp $file_oper ${dirout}/$fname
      # fi
-  else 
+        CI_OK=true
+  elif ([ "$CI_OK" = false ]); then 
       ### Make it as a function
       echo "$fname not on OPER disk. Downloading it from RDA/UCAR ..."
       get_gfs_rda $site $PATHFILE 
