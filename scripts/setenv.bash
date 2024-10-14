@@ -95,6 +95,8 @@ export GFSDATA=/mnt/beegfs/$USER/JEDI/GFS-CI
 export GEFSDATA=/mnt/beegfs/$USER/JEDI/GEFS-CI
 export WPS_EXEC=/mnt/beegfs/$USER/jedi/WPS-4.3.1
 
+export EnsSize=80  ## Number of ensemble members. Used only by ensemble scripts 
+
 # Colors:
 export GREEN='\033[1;32m'  # Green
 export RED='\033[1;31m'    # Red

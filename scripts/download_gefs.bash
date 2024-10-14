@@ -14,6 +14,24 @@ cloud_cp_gefs () {
   #    -q is for quiet ; -m is for multiple file download in parallel
 }
 # ==========================================================================================
+check_dirout () {  
+# check if there directory for ensemble already exist, so, count the pgrb2a and pgrb2b files
+# returning the counts in nfiles_a and nfiles_b variable 
+  local dout=$1     
+  local_dana=$2     
+  hhl=${local_dana:8:2}
+  run_dir=`pwd`
+  
+  if [ -d ${dout} ]; then
+    cd ${dout}
+    nfiles_a=`ls -1 gep??.t${hhl}z.pgrb2a.0p50.f000 | wc -l`
+    nfiles_b=`ls -1 gep??.t${hhl}z.pgrb2b.0p50.f000 | wc -l`
+  else
+    echo "Path not found : $dout" 
+  fi
+  cd $run_dir
+}
+# ==========================================================================================
 get_older_gefs () {
                         # Add ensemble members from previous forecast valid to the DANA date
   DANA=$1               # DANA        : date of analysis in YYYYMMDDHH format
@@ -98,6 +116,7 @@ fi
 date  ### To infer the time to downloading
 
 . setenv.bash
+## EnsSize=80  ## defined by setenv.bash
 
 YY=${YMDH:0:4}
 MM=${YMDH:4:2}
@@ -106,10 +125,25 @@ DD=${YMDH:6:2}
 cloud_path='gefs.'${DYMD}/${HH}'/atmos'
 
 export dirout=${GEFSDATA}/${YY}/${MM}/${DD}/${HH}
+
+### Check if $dirout already exist, if so, count the number of members
+nfiles_a=0
+nfiles_b=0
+check_dirout $dirout $YMDH
+
+echo $dirout
+echo "nfiles_a = "$nfiles_a"     nfiles_b = "$nfiles_b
+
+# If the number of pgrb2a and pgrb2b files = EnsSize , exit  
+if [[ "$nfiles_a" -eq "$EnsSize" ]] && [[ "$nfiles_b" -eq "$EnsSize" ]] ; then
+   echo "GEFS $nfiles_a ensemble members already downloaded in $dirout  "
+   exit 
+fi
+### 
 mkdir -p ${dirout}
 
 ## Each date GEFS has 30 members .
-EnsSize=80
+
 # 30 members of analysis ; 
 # 30 members of 06h forecast from previous analysis time ; separated temporary directory ; them mv arranging the name of files
 # + 20 members of 12h forecast from analysis 12 hours before
@@ -136,6 +170,13 @@ let to_add=$EnsSize-$tot_ens     # 80 - 60 = 20
 echo "Now to_add = "$to_add
 get_older_gefs $YMDH 12 $to_add $tot_ens $dirout
 let tot_ens=$tot_ens+$to_add
+
+check_dirout $dirout $YMDH
+
+# If the number of pgrb2a and pgrb2b files = EnsSize , exit  
+if [[ "$nfiles_a" -eq "$EnsSize" ]] && [[ "$nfilesb" -eq "$EnsSize" ]]; then
+   echo "Download successful of $nfiles_a GEFS ensemble members"
+fi
 
 echo "Arquivos disponíveis em : "${dirout}
 ls ${dirout}
