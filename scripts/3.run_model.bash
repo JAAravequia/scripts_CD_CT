@@ -44,6 +44,7 @@ fi
 #  Open read and listing permition for other 
 umask 0022    #  drwxr-xr-x  for new directories ;  -rw-r--r--  for new files
 #----------------------------------------------------------------------------
+
 # Input variables:--------------------------------------
 EXP=${1};         #EXP=GFS
 RES=${2};         #RES=1024002
@@ -128,7 +129,7 @@ fi
 #-------------------------------------------------------
 
 
-# Calculating final forecast dates in model namelist format: DD_HH:MM:SS 
+# Calculating forecast date in model namelist format: DD_HH:MM:SS 
 # using: start_date(yyyymmdd) + FCST(hh) :
 ind=$(printf "%02d\n" $(echo "${FCST}/24" | bc))
 inh=$(printf "%02.0f\n" $(echo "((${FCST}/24)-${ind})*24" | bc -l))
@@ -154,7 +155,7 @@ fi
 
 clean_model_tmp_files
 
-files_needed=("${DATAIN}/namelists/stream_list.atmosphere.output" ""${DATAIN}/namelists/stream_list.atmosphere.diagnostics "${DATAIN}/namelists/stream_list.atmosphere.surface" "${EXECS}/atmosphere_model" "${DATAIN}/fixed/x1.${RES}.static.nc" "${DATAIN}/fixed/x1.${RES}.graph.info.part.${cores}" "${DATAOUT}/${YYYYMMDDHHi}/Pre/x1.${RES}.init.nc" "${DATAIN}/fixed/Vtable.GFS")
+files_needed=("${DATAIN}/namelists/stream_list.atmosphere.output" "${DATAIN}/namelists/stream_list.atmosphere.diagnostics" "${DATAIN}/namelists/stream_list.atmosphere.surface" "${EXECS}/atmosphere_model" "${DATAIN}/fixed/x1.${RES}.static.nc" "${DATAIN}/fixed/x1.${RES}.graph.info.part.${cores}" "${DATAOUT}/${YYYYMMDDHHi}/Pre/x1.${RES}.init.nc" "${DATAIN}/fixed/Vtable.GFS")
 for file in "${files_needed[@]}"
 do
   if [ ! -s "${file}" ]
@@ -172,7 +173,7 @@ ln -sf ${DATAIN}/fixed/*DATA ${SCRIPTS}
 ln -sf ${DATAIN}/fixed/x1.${RES}.static.nc ${SCRIPTS}
 ln -sf ${DATAIN}/fixed/x1.${RES}.graph.info.part.${cores} ${SCRIPTS}
 ln -sf ${DATAOUT}/${YYYYMMDDHHi}/Pre/x1.${RES}.init.nc ${SCRIPTS}
-ln -sf ${DATAIN}/fixed/Vtable.GFS ${SCRIPTS}
+ln -sf ${DATAIN}/fixed/Vtable.GFS ${SCRIPTS}   ## Vtable is not needed during MPAS model run!!
 
 
 if [ ${EXP} = "GFS" ]

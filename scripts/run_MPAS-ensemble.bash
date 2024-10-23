@@ -19,11 +19,12 @@
 #   ./run_MPAS-ensemble.sh <opções>
 #
 #      As <opções> válidas são
-#          * -ci   <val> : origem da condição inicial [default: GEFS]
+#          * -ci   <val> : origem da condição inicial [default: GFSENS]
 #          * -res  <val> : numero de pontos da resolução de grade [default: 256002 para 48km]  
 #          * -I    <val> : Data da condição inicial do ciclo
 #          * -freq <val> : frequência de saída de background (first guess) [default: each 6 hours] 
 #          * -fct  <val> : Numero de horas de previsão [default: 12 hours]
+#          * -esize <val>: Número de membros do conjunto [default: 80 membros]
 #          * -h          : Mostra este help
 #
 #          exemplo:
@@ -70,9 +71,10 @@ while true; do
       if [ ${arg} = '-ci' ]; then exp=$(subwrd ${@} ${i}); i=$((i+1));  break; fi
       if [ ${arg} = '-res' ]; then res=$(subwrd ${@} ${i}); i=$((i+1));  break; fi
       # general options
-      if [ ${arg} = '-I' ];   then LABELI=$(subwrd ${@} ${i}); i=$((i+1));   break; fi
-      if [ ${arg} = '-freq' ];   then freqbg=$(subwrd ${@} ${i}); i=$((i+1));   break; fi
-      if [ ${arg} = '-fct' ]; then modelFCT=$(subwrd ${@} ${i}); i=$((i+1)); break; fi
+      if [ ${arg} = '-I' ];     then LABELI=$(subwrd ${@} ${i}); i=$((i+1));   break; fi
+      if [ ${arg} = '-freq' ];  then freqbg=$(subwrd ${@} ${i}); i=$((i+1));   break; fi
+      if [ ${arg} = '-fct' ];   then modelFCT=$(subwrd ${@} ${i}); i=$((i+1)); break; fi
+      if [ ${arg} = '-esize' ]; then Esize=$(subwrd ${@} ${i}); i=$((i+1));    break; fi
       flag=1
       i=$((i-1))
 
@@ -122,6 +124,14 @@ if [ -z ${modelFCT} ]; then
    modelFCT=12
 fi
 
+# Número de membros do Ensemble
+if [ -z ${Esize} ]; then
+   echo -e "\e[33;1m >> Warning: \e[m\e[33;1m Número de membros do ensemble (-esize) não informado\e[m"
+   echo -e "Usando default : 80 membros" 
+   echo " " 
+   Esize=80
+fi
+
 # Não haverá modificações na coordenada vertical
 export gsiNLevs=${modelNLevs}
 
@@ -133,6 +143,7 @@ echo -e "\033[34;1m > Condição Inicial    : \033[m \033[31;1m${exp}\033[m"
 echo -e "\033[34;1m > Data Inicial        : \033[m \033[31;1m${LABELI}\033[m"
 echo -e "\033[34;1m > Freq. de saídas (h) : \033[m \033[31;1m${freqbg}\033[m"
 echo -e "\033[34;1m > Tempo de Previsao   : \033[m \033[31;1m${modelFCT}\033[m"
+echo -e "\033[34;1m > Membros do Ensemble : \033[m \033[31;1m${Esize}\033[m"
 
 . setenv.bash
 
@@ -141,33 +152,28 @@ echo -e "\033[34;1m > Tempo de Previsao   : \033[m \033[31;1m${modelFCT}\033[m"
 
 sizeok=6300000    ## typical size of dataout/yyyymmddhh directory is 6391784 Kb (6.1 Gb)
 
-while [ ${LABELI} -le ${LABELF} ]; do
-   dirout=${DIR_DADOS}/dataout/${LABELI}
-   mkdir -p $dirout                       # next verification needs it to be created   
-   size_dout=`\du -s $dirout | cut -f 1`
-   while [ "$size_dout" -lt "$sizeok" ]; do 
-      echo ""
-      echo -e "\033[34;1m >>> Submetendo o Sistema para o dia \033[31;1m${LABELI}\033[m \033[m"
-      echo ""
-   
+dirout=${DIR_DADOS}/dataout/${LABELI}
+mkdir -p $dirout                       # next verification needs it to be created   
 
-   
-      # using WRF/WPS ungrib.exe app, degrig GFS Initial condition
-      ./make_degrib.bash ${exp} ${res} ${LABELI} ${modelFCT} 
-   
-      # convert Initial condition into the MPAS grid
-      ./make_initatmos.bash ${exp} ${res} ${LABELI} ${modelFCT}
-   
-      # run MPAS 
-      ./3.run_model.bash ${exp} ${res} ${LABELI} ${modelFCT}
-   
-      size_dout=`\du -s $dirout | cut -f 1`   # Get the size of output directory to verify it is runned OK
+size_dout=`\du -s $dirout | cut -f 1`
+echo ""
+echo -e "\033[34;1m >>> Submetendo o Sistema para o dia \033[31;1m${LABELI}\033[m \033[m"
+echo ""
 
-   done 
-   #    Going to the next analysis time
-   LABELI=`date -u +%Y%m%d%H -d "${LABELI:0:8} ${LABELI:8:2} +6 hours" ` 
+# using WRF/WPS ungrib.exe app, degrig GFS Initial condition
+## ens_degrib.bash EXP_NAME RESOLUTION LABELI FCST [Esize]
+./ens_degrib.bash ${exp} ${res} ${LABELI} ${modelFCT} ${Esize}
 
-done
+# convert Initial condition into the MPAS grid
+## ./ens_make_initatmos.bash EXP_NAME RESOLUTION LABELI FCST [Esize]
+./ens_make_initatmos.bash ${exp} ${res} ${LABELI} ${modelFCT} ${Esize}
+
+# run MPAS 
+## ens_run_model.bash EXP_NAME RESOLUTION LABELI FCST [Esize]
+echo -e "./ens_run_model.bash ${exp} ${res} ${LABELI} ${modelFCT} ${Esize}" 
+./ens_run_model.bash ${exp} ${res} ${LABELI} ${modelFCT} ${Esize}
+
+size_dout=`\du -s $dirout | cut -f 1`   # Get the size of output directory to verify it is runned OK
 
 #EOC
 #-----------------------------------------------------------------------------#

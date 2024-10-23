@@ -123,10 +123,10 @@ cat << EOF0 > ${SCRIPTS}/initatmos.bash
 #SBATCH --nodes=${INITATMOS_nnodes}                         # depends on how many boundary files are available
 #SBATCH --partition=${INITATMOS_QUEUE} 
 #SBATCH --tasks-per-node=${INITATMOS_ncores}               # only for benchmark
-#SBATCH --time=${STATIC_walltime}
+#SBATCH --time=${INITATMOS_walltime}
 #SBATCH --output=${DATAOUT}/${YYYYMMDDHHi}/Pre/logs/initatmos.bash.o%j    # File name for standard output
 #SBATCH --error=${DATAOUT}/${YYYYMMDDHHi}/Pre/logs/initatmos.bash.e%j     # File name for standard error output
-#SBATCH --exclusive
+##SBATCH --exclusive
 ##SBATCH --mem=500000
 
 export executable=init_atmosphere_model

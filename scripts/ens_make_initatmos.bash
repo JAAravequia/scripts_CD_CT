@@ -1,6 +1,6 @@
 #!/bin/bash 
 
-# -----------------------------------------------------
+# ----------------------------------------------------------
 # create links needed for running MPAS init_atmosphere_model 
 links_4_init () {
 
@@ -34,13 +34,10 @@ links_4_init () {
 # --------------------/\ links_4_init /\----------------------
 #  Create the batch script to run init_atmosphere_model and run it 
 mk_initatmos () {
+                  scpt=$1 ; jobname=$2 ; gribfname=$3 ; prefix_dgrb=$4
 
-  scpt=$1
-  jobname=$2
-  gribfname=$3
-  prefix_dgrb=$4
-
-rm -f ${SCRIPTS}/${scpt} 
+  rm -f ${SCRIPTS}/${scpt} 
+  mkdir -p ${DATAOUT}/${YYYYMMDDHHi}/Pre/${ensN}/
 
 cat << EOF0 > ${SCRIPTS}/${scpt}
 #!/bin/bash
@@ -48,11 +45,11 @@ cat << EOF0 > ${SCRIPTS}/${scpt}
 #SBATCH --nodes=${INITATMOS_nnodes}                         # depends on how many boundary files are available
 #SBATCH --partition=${INITATMOS_QUEUE} 
 #SBATCH --tasks-per-node=${INITATMOS_ncores}               # only for benchmark
-#SBATCH --time=${STATIC_walltime}
+#SBATCH --time=${INITATMOS_walltime}
 #SBATCH --output=${DATAOUT}/${YYYYMMDDHHi}/Pre/logs/${jobname}.o%j    # File name for standard output
 #SBATCH --error=${DATAOUT}/${YYYYMMDDHHi}/Pre/logs/${jobname}.e%j     # File name for standard error output
-#SBATCH --exclusive
-##SBATCH --mem=500000
+# #SBATCH --exclusive
+#SBATCH --mem=200000
 
 export executable=init_atmosphere_model
 # ---------------------------------------------------------------------------
@@ -79,11 +76,10 @@ time mpirun -np \${NTasks} ./\${executable}
 
 date
 
-
 mv ${SCRIPTS}/log.init_atmosphere.0000.out ${DATAOUT}/${YYYYMMDDHHi}/Pre/logs/log.init_atmosphere.0000.${prefix_dgrb}.${YYYYMMDDHHi}.out
 mv namelist.init_atmosphere ${DATAOUT}/${YYYYMMDDHHi}/Pre/logs/namelist.init_atmosphere-${prefix_dgrb}
 mv streams.init_atmosphere ${DATAOUT}/${YYYYMMDDHHi}/Pre/logs
-mv ${SCRIPTS}/x1.${RES}.init.nc ${DATAOUT}/${YYYYMMDDHHi}/Pre/${prefix_dgrb}_x1.${RES}.init.nc
+mv ${SCRIPTS}/x1.${RES}.init.nc ${DATAOUT}/${YYYYMMDDHHi}/Pre/${ensN}/x1.${RES}.init.nc
 
 chmod a+x ${DATAOUT}/${YYYYMMDDHHi}/Pre/${prefix_dgrb}_x1.${RES}.init.nc 
 rm -f ${SCRIPTS}/${EXP}\:${start_date:0:13}
@@ -95,21 +91,22 @@ rm -f ${SCRIPTS}/log.init_atmosphere.*.err
 EOF0
 
   chmod a+x ${SCRIPTS}/${scpt}
-  
+
   echo -e  "${GREEN}==>${NC} Executing sbatch ${scpt}...\n"
   cd ${SCRIPTS}
-  sbatch --wait ${SCRIPTS}/${scpt}
+  sbatch ${WAIT_FLAG} ${SCRIPTS}/${scpt}
   mv ${SCRIPTS}/${scpt} ${DATAOUT}/${YYYYMMDDHHi}/Pre/logs
-  
+
 }
 # ----------------------------/\ mk_initatmos /\------------------------------------
 # ------------------------------------------------------
 verify_run () {
-files_run=$1     
+                files_run=$1
+
 for file in "${files_run[@]}"
    do
-     ls -1  ${DATAOUT}/${YYYYMMDDHHi}/Pre/${file}
-     if [ ! -s ${DATAOUT}/${YYYYMMDDHHi}/Pre/${file} ] 
+     ls -1  ${DATAOUT}/${YYYYMMDDHHi}/Pre/${ensN}/${file}
+     if [ ! -s ${DATAOUT}/${YYYYMMDDHHi}/Pre/${ensN}/${file} ] 
      then
        echo -e  "\n${RED}==>${NC} ***** ATTENTION *****\n"	  
        echo -e  "${RED}==>${NC} Init Atmosphere phase fails! At least the file ${file} was not generated at ${DATAIN}/${YYYYMMDDHHi}. \n"
@@ -120,20 +117,38 @@ for file in "${files_run[@]}"
    done
 }
 # -------------/\ verify_run /\-------------------------
+
+#  Given max number of simultaneous job (mx_jobs) and ensemble number (enumber) 
+#  define if job should wait (TRUE) or not (FALSE) . 
+#  jwait will be true each mx_jobs lauched 
+job_wait () {
+              enumber=$1 ;  mx_jobs=$2
+              # input arguments
+   echo -e "JOB Wait: $enumber $mx_jobs $ensN "
+   div=$( echo "${enumber}/${mx_jobs}" | bc -l )
+   rounddiv=$( printf '%.0f' $div )
+   numint=$( echo "$rounddiv*$mx_jobs" | bc )
+   if [[ $numint -eq $enumber ]]; then  
+     jwait=true 
+   else 
+     jwait=false 
+   fi
+}
+# -------------/\ job_wait /\-------------------------
 #############   MAIN ##############
 if [ $# -lt 4 ]
 then
    echo ""
    echo "Instructions: execute the command below"
    echo ""
-   echo "${0} EXP_NAME RESOLUTION LABELI FCST"
+   echo "${0} EXP_NAME RESOLUTION LABELI FCST [Esize]"
    echo ""
-   echo "EXP_NAME    :: Forcing: GFS or GFSENS"
+   echo "EXP_NAME    :: Forcing: GFSENS or GFS"
    echo "            :: Others options to be added later..."
    echo "RESOLUTION  :: number of points in resolution model grid, e.g: 1024002  (24 km)"
    echo "LABELI      :: Initial date YYYYMMDDHH, e.g.: 2024010100"
    echo "FCST        :: Forecast hours, e.g.: 24 or 36, etc."
-   echo "Esize       :: Number of member of ensemble, e.g. 80 ."
+   echo "Esize       :: Optional: Number of member of ensemble, default is 80 ."
    echo ""
    echo "24 hour forecast example:"
    echo "${0} GFSENS 1024002 2024010100 24"
@@ -155,6 +170,7 @@ YYYYMMDDHHi=${3}; #YYYYMMDDHHi=2024012000
 FCST=${4};        #FCST=24
 #-------------------------------------------------------
 # Parameter for DA
+max_jobs=8    # assuming we have 4 nodes for DA
 len=3
 #-------------------------------------------------------
 DYMD=${YYYYMMDDHHi:0:8}  # YYYYMMDD
@@ -240,12 +256,19 @@ case $EXP in
       jobnm='e'${ensN}'init'
     
       rm -f ${SCRIPTS}/${scrpt_nm} 
-
-      mk_initatmos ${scrpt_nm} ${jobnm} ${degrib_fname} ${prfix_dgrb}
-
+            
+      job_wait $ensN $max_jobs
+      if [[ $jwait == true ]]; then 
+         WAIT_FLAG='--wait'
+         mk_initatmos ${scrpt_nm} ${jobnm} ${degrib_fname} ${prfix_dgrb} 
+         files_init=("x1.${RES}.init.nc") 
+         verify_run $files_init
+      else
+         WAIT_FLAG=''
+         mk_initatmos ${scrpt_nm} ${jobnm} ${degrib_fname} ${prfix_dgrb}
+      fi
       echo "Working directory: "$PWD
-      files_init=("${prfix_dgrb}_x1.${RES}.init.nc")
-      verify_run $files_init
+
     done
   ;;
   GFS)
@@ -261,7 +284,7 @@ case $EXP in
     jobnm='init'
 
     rm -f ${SCRIPTS}/${scrpt_nm} 
-
+    WAIT_FLAG='--wait'
     mk_initatmos ${scrpt_nm} ${jobnm} ${degrib_fname} ${prfix_dgrb}
 
     echo "Working directory: "$PWD

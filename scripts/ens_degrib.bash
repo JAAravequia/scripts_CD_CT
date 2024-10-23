@@ -42,7 +42,7 @@ cat << EOF0 > ${SCRIPTS}/${scpt}
 #SBATCH --partition=${DEGRIB_QUEUE}
 #SBATCH --ntasks=${DEGRIB_ncores}             
 #SBATCH --tasks-per-node=${DEGRIB_ncpn}                           # ic for benchmark
-#SBATCH --time=${STATIC_walltime}
+#SBATCH --time=${DEGRIB_walltime}
 #SBATCH --output=${DATAOUT}/${YYYYMMDDHHi}/Pre/logs/${jobname}.o%j    # File name for standard output
 #SBATCH --error=${DATAOUT}/${YYYYMMDDHHi}/Pre/logs/${jobname}.e%j     # File name for standard error output
 #
@@ -109,7 +109,8 @@ EOF0
   
   echo -e  "${GREEN}==>${NC} Executing sbatch ${scpt}...\n"
   cd ${SCRIPTS}
-  sbatch --wait ${SCRIPTS}/${scpt}
+  echo sbatch ${WAIT_FLAG} ${SCRIPTS}/${scpt}
+  sbatch ${WAIT_FLAG} ${SCRIPTS}/${scpt}
   mv ${SCRIPTS}/${scpt} ${DATAOUT}/${YYYYMMDDHHi}/Pre/logs
   
 }
@@ -131,20 +132,37 @@ for file in "${files_run[@]}"
    done
 }
 # -------------/\ verify_run /\-------------------------
+#  Given max number of simultaneous job (mx_jobs) and ensemble number (enumber) 
+#  define if job should wait (TRUE) or not (FALSE) . 
+#  jwait will be true each mx_jobs lauched 
+job_wait () {
+              enumber=$1 ;  mx_jobs=$2
+              # input arguments
+   echo -e "JOB Wait: $enumber $mx_jobs $ensN "
+   div=$( echo "${enumber}/${mx_jobs}" | bc -l )
+   rounddiv=$( printf '%.0f' $div )
+   numint=$( echo "$rounddiv*$mx_jobs" | bc )
+   if [[ $numint -eq $enumber ]]; then  
+     jwait=true 
+   else 
+     jwait=false 
+   fi
+}
+# -------------/\ job_wait /\-------------------------
 #############   MAIN ##############
 if [ $# -lt 4 ]
 then
    echo ""
    echo "Instructions: execute the command below"
    echo ""
-   echo "${0} EXP_NAME RESOLUTION LABELI FCST"
+   echo "${0} EXP_NAME RESOLUTION LABELI FCST [Esize]"
    echo ""
-   echo "EXP_NAME    :: Forcing: GFS or GFSENS"
+   echo "EXP_NAME    :: Forcing: GFSENS or GFS"
    echo "            :: Others options to be added later..."
    echo "RESOLUTION  :: number of points in resolution model grid, e.g: 1024002  (24 km)"
    echo "LABELI      :: Initial date YYYYMMDDHH, e.g.: 2024010100"
    echo "FCST        :: Forecast hours, e.g.: 24 or 36, etc."
-   echo "Esize       :: Number of member of ensemble, e.g. 80 ."
+   echo "Esize       :: Optional: Number of member of ensemble, default is 80 ."
    echo ""
    echo "24 hour forecast example:"
    echo "${0} GFSENS 1024002 2024010100 24"
@@ -167,6 +185,7 @@ FCST=${4};        #FCST=24
 
 #-------------------------------------------------------
 # Parameter for DA
+max_jobs=80    # assuming we have 4 nodes for DA
 len=3
 #-------------------------------------------------------
 DYMD=${YYYYMMDDHHi:0:8}  # YYYYMMDD
@@ -181,7 +200,7 @@ echo -e "\033[1;32m==>\033[0m Moduling environment for MONAN model...\n"
 . setenv.bash
 
 if [[ $# -eq 5 ]] ; then
-  echo 'setenv.bash ensemble size =$EnsSize , changing to the command line argument. : '$5
+  echo 'setenv.bash ensemble size ='$EnsSize' , changing to the command line argument : '$5
   EnsSize=$5
 fi
 
@@ -249,11 +268,22 @@ case $EXP in
     
       rm -f ${SCRIPTS}/${scrpt_nm} 
 
+      ## assure that maximum jobs submited is max_jobs. When max_jobs submited will wait , then restart submiting the nexts   
+      job_wait $ensN $max_jobs
+      echo "jwait : "$jwait
+      if [[ $jwait == true ]]; then 
+         WAIT_FLAG='--wait'
+      else
+         WAIT_FLAG=''
+      fi
+
       mk_degrib ${scrpt_nm} ${jobnm} ${grib_file} ${prfix_dgrb}
 
       echo "Working directory: "$PWD 
       files_ungrib=("GEFS_${ensN}:${YY}-${MM}-${DD}_${HH}")
-      verify_run $files_ungrib
+      if [[ $jwait == true ]]; then 
+        verify_run $files_ungrib 
+      fi
     done
   ;;
   GFS)
@@ -267,6 +297,8 @@ case $EXP in
     grib_file=${BNDDIR}/${GEFS_file_ab}
     jobnm='ungrib'
     prfix_dgrb=GFS
+
+    WAIT_FLAG='--wait'
 
     mk_degrib ${scrpt_nm} ${jobnm} ${grib_file} ${prfix_dgrb}
 

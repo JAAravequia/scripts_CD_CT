@@ -36,7 +36,7 @@ export DEGRIB_ncores=1
 export DEGRIB_nnodes=1
 export DEGRIB_ncpn=1
 export DEGRIB_jobname="Pre.degrib"
-### export DEGRIB_walltime="00:30:00" not used yet - using STATIC_walltime
+export DEGRIB_walltime="00:05:00" not used yet - using STATIC_walltime
 
 # PRE-Init Atmosphere phase:
 export INITATMOS_QUEUE="PESQ1"
@@ -44,7 +44,7 @@ export INITATMOS_ncores=64
 export INITATMOS_nnodes=1
 ### export INITATMOS_ncpn=1 not used yet  - using INITATMOS_ncores 
 export INITATMOS_jobname="Pre.InitAtmos"
-### export INITATMOS_walltime="01:00:00" not used yet - using STATIC_walltime
+export INITATMOS_walltime="00:05:00" not used yet - using STATIC_walltime
 
 
 # Model phase:
